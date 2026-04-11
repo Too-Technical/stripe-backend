@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Store Widget</title>
+  <style>
+    body { font-family: Arial; margin: 0; padding: 10px; }
+    .product {
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 6px;
+    }
+    button {
+      padding: 6px 10px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<div id="app">Loading products...</div>
+
+<script>
+const API = "https://stripe-backend-sisw.onrender.com/products";
+
+async function load() {
+  try {
+    const res = await fetch(API);
+    const products = await res.json();
+
+    document.getElementById("app").innerHTML =
+      products.map(p => `
+        <div class="product">
+          <h3>${p.name}</h3>
+          <p>$${(p.price / 100).toFixed(2)}</p>
+          <button onclick="alert('Added: ${p.name}')">
+            Add to Cart
+          </button>
+        </div>
+      `).join("");
+
+  } catch (e) {
+    document.getElementById("app").innerHTML =
+      "Error loading products: " + e.message;
+  }
+}
+
+load();
+</script>
+
+</body>
+</html>

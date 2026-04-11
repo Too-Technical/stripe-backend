@@ -28,7 +28,7 @@ app.get("/products", async (req, res) => {
 
     res.json(products);
   } catch (err) {
-    console.error(err);
+    console.error("Products error:", err);
     res.status(500).send(err.message);
   }
 });
@@ -38,8 +38,9 @@ app.post("/create-checkout-session", async (req, res) => {
   try {
     const items = req.body.items;
 
-    if (!items || !Array.isArray(items)) {
-      return res.status(400).json({ error: "Invalid cart items" });
+    // Validate cart
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: "Cart is empty" });
     }
 
     const session = await stripe.checkout.sessions.create({

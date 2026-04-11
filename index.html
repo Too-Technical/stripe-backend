@@ -2,51 +2,183 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Store Widget</title>
+  <title>My Store</title>
+
   <style>
-    body { font-family: Arial; margin: 0; padding: 10px; }
+    body { font-family: Arial, sans-serif; padding: 20px; }
+
     .product {
       border: 1px solid #ccc;
       padding: 10px;
       margin: 10px 0;
       border-radius: 6px;
     }
+
     button {
       padding: 6px 10px;
       cursor: pointer;
+      margin-top: 5px;
+    }
+
+    #cart {
+      margin-top: 20px;
+      border-top: 2px solid #000;
+      padding-top: 10px;
     }
   </style>
 </head>
+
 <body>
 
-<div id="app">Loading products...</div>
+<h1>My Store</h1>
+
+<div id="status">Loading products...</div>
+
+<h2>Products</h2>
+<div id="products"></div>
+
+<h2>Cart</h2>
+<div id="cart">Cart is empty</div>
+<h3 id="total"></h3>
+
+<button onclick="checkout()">Checkout</button>
 
 <script>
 const API = "https://stripe-backend-sisw.onrender.com/products";
 
-async function load() {
+let products = [];
+let cart = [];
+
+/* -----------------------------
+   INIT
+------------------------------*/
+document.getElementById("status").innerText = "SCRIPT RUNNING";
+
+loadProducts();
+
+/* -----------------------------
+   LOAD PRODUCTS
+------------------------------*/
+async function loadProducts() {
   try {
     const res = await fetch(API);
-    const products = await res.json();
+    products = await res.json();
 
-    document.getElementById("app").innerHTML =
-      products.map(p => `
-        <div class="product">
-          <h3>${p.name}</h3>
-          <p>$${(p.price / 100).toFixed(2)}</p>
-          <button onclick="alert('Added: ${p.name}')">
-            Add to Cart
-          </button>
-        </div>
-      `).join("");
-
-  } catch (e) {
-    document.getElementById("app").innerHTML =
-      "Error loading products: " + e.message;
+    renderProducts();
+    document.getElementById("status").innerText = "PRODUCTS LOADED";
+  } catch (err) {
+    document.getElementById("status").innerText = "ERROR: " + err.message;
   }
 }
 
-load();
+/* -----------------------------
+   RENDER PRODUCTS
+------------------------------*/
+function renderProducts() {
+  document.getElementById("products").innerHTML =
+    products.map(p => `
+      <div class="product">
+        <b>${p.name}</b><br>
+        $${(p.price / 100).toFixed(2)}<br>
+
+        <button onclick="addToCart('${p.priceId}')">
+          Add to Cart
+        </button>
+      </div>
+    `).join("");
+}
+
+/* -----------------------------
+   CART LOGIC
+------------------------------*/
+function addToCart(priceId) {
+  const product = products.find(p => p.priceId === priceId);
+  if (!product) return;
+
+  const item = cart.find(i => i.priceId === priceId);
+
+  if (item) {
+    item.qty++;
+  } else {
+    cart.push({ ...product, qty: 1 });
+  }
+
+  renderCart();
+}
+
+function changeQty(priceId, delta) {
+  const item = cart.find(i => i.priceId === priceId);
+  if (!item) return;
+
+  item.qty += delta;
+
+  if (item.qty <= 0) {
+    cart = cart.filter(i => i.priceId !== priceId);
+  }
+
+  renderCart();
+}
+
+/* -----------------------------
+   RENDER CART
+------------------------------*/
+function renderCart() {
+  const cartDiv = document.getElementById("cart");
+  const totalDiv = document.getElementById("total");
+
+  if (cart.length === 0) {
+    cartDiv.innerHTML = "Cart is empty";
+    totalDiv.innerText = "";
+    return;
+  }
+
+  let total = 0;
+
+  cartDiv.innerHTML = cart.map(item => {
+    total += item.price * item.qty;
+
+    return `
+      <div>
+        <b>${item.name}</b><br>
+        $${(item.price / 100).toFixed(2)} ×
+        <button onclick="changeQty('${item.priceId}', -1)">-</button>
+        ${item.qty}
+        <button onclick="changeQty('${item.priceId}', 1)">+</button>
+      </div>
+      <br>
+    `;
+  }).join("");
+
+  totalDiv.innerText = "Total: $" + (total / 100).toFixed(2);
+}
+
+/* -----------------------------
+   CHECKOUT (Stripe)
+------------------------------*/
+async function checkout() {
+  if (cart.length === 0) {
+    alert("Cart is empty");
+    return;
+  }
+
+  const res = await fetch(
+    "https://stripe-backend-sisw.onrender.com/create-checkout-session",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items: cart })
+    }
+  );
+
+  const data = await res.json();
+
+  if (data.url) {
+    window.location.href = data.url;
+  } else {
+    alert("Checkout failed");
+    console.log(data);
+  }
+}
 </script>
 
 </body>

@@ -3,27 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <title>My Store</title>
-
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-
+    body { font-family: Arial; padding: 20px; }
     .product {
       border: 1px solid #ccc;
       padding: 10px;
       margin: 10px 0;
       border-radius: 6px;
     }
-
     button {
       padding: 6px 10px;
       cursor: pointer;
       margin-top: 5px;
-    }
-
-    #cart {
-      margin-top: 20px;
-      border-top: 2px solid #000;
-      padding-top: 10px;
     }
   </style>
 </head>
@@ -32,7 +23,7 @@
 
 <h1>My Store</h1>
 
-<div id="status">Loading products...</div>
+<div id="status">Loading...</div>
 
 <h2>Products</h2>
 <div id="products"></div>
@@ -49,59 +40,37 @@ const API = "https://stripe-backend-sisw.onrender.com/products";
 let products = [];
 let cart = [];
 
-/* -----------------------------
-   INIT
-------------------------------*/
-document.getElementById("status").innerText = "SCRIPT RUNNING";
-
-loadProducts();
-
-/* -----------------------------
-   LOAD PRODUCTS
-------------------------------*/
+// Load products
 async function loadProducts() {
   try {
     const res = await fetch(API);
     products = await res.json();
 
-    renderProducts();
-    document.getElementById("status").innerText = "PRODUCTS LOADED";
+    document.getElementById("status").innerText = "Products Loaded";
+
+    document.getElementById("products").innerHTML =
+      products.map(p => `
+        <div class="product">
+          <b>${p.name}</b><br>
+          $${(p.price / 100).toFixed(2)}<br>
+          <button onclick="addToCart('${p.priceId}')">
+            Add to Cart
+          </button>
+        </div>
+      `).join("");
   } catch (err) {
-    document.getElementById("status").innerText = "ERROR: " + err.message;
+    document.getElementById("status").innerText = "Error: " + err.message;
   }
 }
 
-/* -----------------------------
-   RENDER PRODUCTS
-------------------------------*/
-function renderProducts() {
-  document.getElementById("products").innerHTML =
-    products.map(p => `
-      <div class="product">
-        <b>${p.name}</b><br>
-        $${(p.price / 100).toFixed(2)}<br>
-
-        <button onclick="addToCart('${p.priceId}')">
-          Add to Cart
-        </button>
-      </div>
-    `).join("");
-}
-
-/* -----------------------------
-   CART LOGIC
-------------------------------*/
 function addToCart(priceId) {
   const product = products.find(p => p.priceId === priceId);
   if (!product) return;
 
   const item = cart.find(i => i.priceId === priceId);
 
-  if (item) {
-    item.qty++;
-  } else {
-    cart.push({ ...product, qty: 1 });
-  }
+  if (item) item.qty++;
+  else cart.push({...product, qty: 1});
 
   renderCart();
 }
@@ -119,56 +88,46 @@ function changeQty(priceId, delta) {
   renderCart();
 }
 
-/* -----------------------------
-   RENDER CART
-------------------------------*/
 function renderCart() {
-  const cartDiv = document.getElementById("cart");
-  const totalDiv = document.getElementById("total");
+  const c = document.getElementById("cart");
+  const t = document.getElementById("total");
 
   if (cart.length === 0) {
-    cartDiv.innerHTML = "Cart is empty";
-    totalDiv.innerText = "";
+    c.innerHTML = "Cart is empty";
+    t.innerText = "";
     return;
   }
 
   let total = 0;
 
-  cartDiv.innerHTML = cart.map(item => {
-    total += item.price * item.qty;
+  c.innerHTML = cart.map(i => {
+    total += i.price * i.qty;
 
     return `
       <div>
-        <b>${item.name}</b><br>
-        $${(item.price / 100).toFixed(2)} ×
-        <button onclick="changeQty('${item.priceId}', -1)">-</button>
-        ${item.qty}
-        <button onclick="changeQty('${item.priceId}', 1)">+</button>
+        <b>${i.name}</b><br>
+        $${(i.price / 100).toFixed(2)} ×
+        <button onclick="changeQty('${i.priceId}', -1)">-</button>
+        ${i.qty}
+        <button onclick="changeQty('${i.priceId}', 1)">+</button>
       </div>
-      <br>
     `;
   }).join("");
 
-  totalDiv.innerText = "Total: $" + (total / 100).toFixed(2);
+  t.innerText = "Total: $" + (total / 100).toFixed(2);
 }
 
-/* -----------------------------
-   CHECKOUT (Stripe)
-------------------------------*/
 async function checkout() {
   if (cart.length === 0) {
     alert("Cart is empty");
     return;
   }
 
-  const res = await fetch(
-    "https://stripe-backend-sisw.onrender.com/create-checkout-session",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items: cart })
-    }
-  );
+  const res = await fetch("https://stripe-backend-sisw.onrender.com/create-checkout-session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ items: cart })
+  });
 
   const data = await res.json();
 
@@ -179,6 +138,8 @@ async function checkout() {
     console.log(data);
   }
 }
+
+loadProducts();
 </script>
 
 </body>

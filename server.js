@@ -55,8 +55,8 @@ app.post("/create-checkout-session", async (req, res) => {
         },
         quantity: item.qty
       })),
-      success_url: "https://stripe-backend-1-c5ry.onrender.com",
-      cancel_url: "https://stripe-backend-1-c5ry.onrender.com"
+      success_url: "https://stripe-backend-1-c5ry.onrender.com/success.html",
+      cancel_url: "https://stripe-backend-1-c5ry.onrender.com/cancel.html"
     });
 
     res.json({ url: session.url });

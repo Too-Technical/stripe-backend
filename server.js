@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const fetch = require("node-fetch"); // <-- needed for Google Sheets
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 const app = express();
@@ -33,7 +34,7 @@ app.get("/products", async (req, res) => {
   }
 });
 
-// Create Stripe Checkout session
+// Create Stripe Checkout session + SAVE ORDER
 app.post("/create-checkout-session", async (req, res) => {
   try {
     const items = req.body.items;
@@ -43,6 +44,27 @@ app.post("/create-checkout-session", async (req, res) => {
       return res.status(400).json({ error: "Cart is empty" });
     }
 
+    // Calculate total (in cents)
+    const total = items.reduce((sum, item) => {
+      return sum + item.price * item.qty;
+    }, 0);
+
+    // 🔹 SEND ORDER TO GOOGLE SHEET
+    await fetch(
+      "https://script.google.com/macros/s/AKfycbzvfFKAFckgyZ_D7QEN10aiqjwqT2HmhCmBpqoYIc8bFz6Kc_2HDcGRkEtdCOWp5fMrFg/exec",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          items,
+          total
+        })
+      }
+    );
+
+    // Create Stripe session
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items: items.map(item => ({

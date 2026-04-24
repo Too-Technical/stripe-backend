@@ -13,22 +13,21 @@ app.post("/create-checkout-session", async (req, res) => {
     }, 0);
 
     // Create Stripe session (collect email)
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      customer_email: undefined, // Stripe will ask for email
-      line_items: items.map(item => ({
-        price_data: {
-          currency: "usd",
-          product_data: {
-            name: item.name
-          },
-          unit_amount: item.price
-        },
-        quantity: item.qty
-      })),
-      success_url: "https://stripe-backend-1-c5ry.onrender.com/success.html",
-      cancel_url: "https://stripe-backend-1-c5ry.onrender.com/cancel.html"
-    });
+ const session = await stripe.checkout.sessions.create({
+  mode: "payment",
+  line_items: items.map(item => ({
+    price_data: {
+      currency: "usd",
+      product_data: {
+        name: item.name
+      },
+      unit_amount: item.price
+    },
+    quantity: item.qty
+  })),
+  success_url: "https://stripe-backend-1-c5ry.onrender.com/success.html",
+  cancel_url: "https://stripe-backend-1-c5ry.onrender.com/cancel.html"
+});
 
     // Send order to Google Sheets (with email if available)
     await fetch(

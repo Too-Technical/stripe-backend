@@ -50,19 +50,17 @@ app.post("/create-checkout-session", async (req, res) => {
     }, 0);
 
     // 🔹 SEND ORDER TO GOOGLE SHEET
-    await fetch(
-      "https://script.google.com/macros/s/AKfycbzvfFKAFckgyZ_D7QEN10aiqjwqT2HmhCmBpqoYIc8bFz6Kc_2HDcGRkEtdCOWp5fMrFg/exec",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          items,
-          total
-        })
-      }
-    );
+    await fetch("https://script.google.com/macros/s/AKfycbzvfFKAFckgyZ_D7QEN10aiqjwqT2HmhCmBpqoYIc8bFz6Kc_2HDcGRkEtdCOWp5fMrFg/exec", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    items,
+    total,
+    email: session.customer_email || "no email"
+  })
+});
 
     // Create Stripe session
     const session = await stripe.checkout.sessions.create({

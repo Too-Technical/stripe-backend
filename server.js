@@ -5,6 +5,9 @@ const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 const app = express();
 
+// 🔴 Required for Stripe webhook
+app.use("/webhook", express.raw({ type: "application/json" }));
+
 app.use(cors({ origin: "*" }));
 app.use(express.json());
 
@@ -13,7 +16,7 @@ app.get("/", (req, res) => {
   res.send("Server is running");
 });
 
-// Get products from Stripe
+// Get products
 app.get("/products", async (req, res) => {
   try {
     const prices = await stripe.prices.list({
@@ -29,27 +32,15 @@ app.get("/products", async (req, res) => {
 
     res.json(products);
   } catch (err) {
-    console.error("Products error:", err);
     res.status(500).send(err.message);
   }
 });
 
-// Create Stripe Checkout session + SAVE ORDER
+// Create checkout session (NO sheet saving here anymore)
 app.post("/create-checkout-session", async (req, res) => {
   try {
     const items = req.body.items;
 
-    // Validate cart
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ error: "Cart is empty" });
-    }
-
-    // Calculate total
-    const total = items.reduce((sum, item) => {
-      return sum + item.price * item.qty;
-    }, 0);
-
-    // 1️⃣ Create Stripe session FIRST
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items: items.map(item => ({
@@ -66,29 +57,51 @@ app.post("/create-checkout-session", async (req, res) => {
       cancel_url: "https://stripe-backend-1-c5ry.onrender.com/cancel.html"
     });
 
-    // 2️⃣ THEN save order to Google Sheets
-    await fetch(
-      "https://script.google.com/macros/s/AKfycbzvfFKAFckgyZ_D7QEN10aiqjwqT2HmhCmBpqoYIc8bFz6Kc_2HDcGRkEtdCOWp5fMrFg/exec",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          items,
-          total,
-          email: "collected at checkout"
-        })
-      }
-    );
-
-    // Send Stripe URL back to frontend
     res.json({ url: session.url });
 
   } catch (err) {
-    console.error("Checkout error:", err);
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
+});
+
+// 🔥 WEBHOOK — saves order AFTER payment
+app.post("/webhook", async (req, res) => {
+  const sig = req.headers["stripe-signature"];
+
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(
+      req.body,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
+  } catch (err) {
+    console.log("Webhook error:", err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object;
+
+    const email = session.customer_details?.email || "no email";
+    const total = session.amount_total || 0;
+
+    await fetch("https://script.google.com/macros/s/AKfycbzvfFKAFckgyZ_D7QEN10aiqjwqT2HmhCmBpqoYIc8bFz6Kc_2HDcGRkEtdCOWp5fMrFg/exec", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        items: [{ name: "Stripe Order", qty: 1 }],
+        total,
+        email
+      })
+    });
+  }
+
+  res.json({ received: true });
 });
 
 // Start server
